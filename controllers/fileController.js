@@ -30,7 +30,7 @@ exports.upload = async (req, res) => {
   }
 };
 
-// 🆕 Get all images in DESCENDING order
+//  Get all images in DESCENDING order
 exports.getAll = async (req, res) => {
   try {
     const files = await File.findAll({
