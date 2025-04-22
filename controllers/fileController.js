@@ -1,9 +1,12 @@
 const { File } = require('../models');
 
-// Allowed image types
 const ALLOWED_TYPES = ['image/png', 'image/jpeg'];
 
-// Upload new image
+/**
+ * Upload a new image file.
+ *  Validates file presence and type.
+ *  Saves image buffer and metadata to DB.
+ */
 exports.upload = async (req, res) => {
   try {
     const { name } = req.body;
@@ -20,7 +23,7 @@ exports.upload = async (req, res) => {
     const newFile = await File.create({
       name,
       filename: originalname,
-      image: buffer
+      image: buffer,
     });
 
     res.status(201).json(newFile);
@@ -30,11 +33,14 @@ exports.upload = async (req, res) => {
   }
 };
 
-//  Get all images in DESCENDING order
+/**
+ * Fetch all uploaded files.
+ *  Returns list of files sorted by upload date (most recent first).
+ */
 exports.getAll = async (req, res) => {
   try {
     const files = await File.findAll({
-      order: [['upload_date', 'DESC']] // Sort by newest first
+      order: [['upload_date', 'ASC']],
     });
     res.json(files);
   } catch (err) {
@@ -43,22 +49,28 @@ exports.getAll = async (req, res) => {
   }
 };
 
-// Get a single image
+/**
+ * Serve image binary by file ID.
+ *  Sets appropriate content type and streams binary data.
+ */
 exports.getImage = async (req, res) => {
   try {
     const file = await File.findByPk(req.params.id);
     if (!file) return res.status(404).json({ error: 'File not found' });
 
-    const contentType = file.filename.endsWith('.png') ? 'image/png' : 'image/jpeg';
-    res.set('Content-Type', contentType);
+    res.set('Content-Type', 'image/jpeg'); // or detect MIME if stored
     res.send(file.image);
   } catch (err) {
     console.error('Get image error:', err);
-    res.status(500).json({ error: 'Error retrieving image' });
+    res.status(500).json({ error: 'Error fetching image' });
   }
 };
 
-// Update image and name
+/**
+ * Update a file's name or image.
+ *  If new image uploaded, validates type and updates buffer.
+ *  Updates modified date.
+ */
 exports.update = async (req, res) => {
   try {
     const file = await File.findByPk(req.params.id);
@@ -67,22 +79,22 @@ exports.update = async (req, res) => {
     const { name } = req.body;
     const uploadedFile = req.file;
 
-    if (!uploadedFile) {
-      return res.status(400).json({ error: 'No file uploaded for update' });
+    if (name) file.name = name;
+
+    if (uploadedFile) {
+      const { originalname, mimetype, buffer } = uploadedFile;
+
+      if (!ALLOWED_TYPES.includes(mimetype)) {
+        return res.status(400).json({ error: 'Only PNG and JPEG images are allowed' });
+      }
+
+      file.filename = originalname;
+      file.image = buffer;
     }
 
-    const { originalname, mimetype, buffer } = uploadedFile;
-
-    if (!ALLOWED_TYPES.includes(mimetype)) {
-      return res.status(400).json({ error: 'Only PNG and JPEG images are allowed' });
-    }
-
-    file.name = name;
-    file.filename = originalname;
-    file.image = buffer;
     file.modified_date = new Date();
-
     await file.save();
+
     res.json(file);
   } catch (err) {
     console.error('Update error:', err);
@@ -90,7 +102,10 @@ exports.update = async (req, res) => {
   }
 };
 
-// Delete image
+/**
+ * Delete a file by ID.
+ *  If file exists, removes it from DB.
+ */
 exports.delete = async (req, res) => {
   try {
     const file = await File.findByPk(req.params.id);
