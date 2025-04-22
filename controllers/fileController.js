@@ -1,3 +1,4 @@
+
 const { File } = require('../models');
 
 const ALLOWED_TYPES = ['image/png', 'image/jpeg'];
